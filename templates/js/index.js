@@ -1,5 +1,16 @@
 $(document).ready(function () {
+    // Función para manejar el clic en el botón "Enviar"
     $("#buscar").click(function () {
+        enviarConsulta();
+    });
+
+    // Función para manejar el clic en el botón "por Voz"
+    $("#buscarPorVoz").click(function () {
+        iniciarReconocimientoVoz();
+    });
+
+    // Función para enviar la consulta al servidor
+    function enviarConsulta() {
         var userInput = $("#input").val().trim();
         $("#input").val("");
 
@@ -37,43 +48,39 @@ $(document).ready(function () {
                 console.error("Error de AJAX:", status, error);
             }
         });
-    });
+    }
 
-    // Función de reconocimiento de voz
-    if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
-        console.error("El navegador no es compatible con la API de reconocimiento de voz.");
-    } else {
-        const reconocimiento = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        reconocimiento.lang = 'es-ES'; // Establece el idioma del reconocimiento de voz a español
+    // Función para iniciar el reconocimiento de voz
+    function iniciarReconocimientoVoz() {
+        // Solicitar permiso para acceder al micrófono del usuario
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function(stream) {
+                // Crear un nuevo objeto de reconocimiento de voz
+                var recognition = new webkitSpeechRecognition();
+                recognition.lang = 'es'; // Establecer el idioma del reconocimiento (español en este caso)
+                
+                // Iniciar el reconocimiento de voz
+                recognition.start();
+                
+                // Cuando se detecta un resultado del reconocimiento
+                recognition.onresult = function(event) {
+                    // Obtener el texto reconocido
+                    var userInput = event.results[0][0].transcript;
+                    // Mostrar el texto en el campo de entrada
+                    $("#input").val(userInput);
+                    // Enviar automáticamente la consulta
+                    enviarConsulta();
+                };
 
-        reconocimiento.onstart = function () {
-            console.log("El micrófono está activado");
-        }
-
-        reconocimiento.onresult = function (event) {
-            const current = event.resultIndex;
-            const transcripcion = event.results[current][0].transcript;
-            document.getElementById("input").value = transcripcion;
-        }
-
-        document.getElementById('voice-search').addEventListener('click', () => {
-            reconocimiento.start();
-        });
-
-        reconocimiento.onend = function () {
-            buscarMensaje();
-        };
-
-        function buscarMensaje() {
-            const transcripcion = document.getElementById("input").value;
-            if (transcripcion.trim() !== '') {
-                $("#buscar").click();
-            }
-        }
+                // Cuando el reconocimiento de voz finaliza
+                recognition.onend = function() {
+                    // Detener el flujo de audio
+                    stream.getTracks().forEach(track => track.stop());
+                };
+            })
+            .catch(function(error) {
+                // Manejar errores, por ejemplo, permisos de micrófono denegados
+                console.error('Error al acceder al micrófono:', error);
+            });
     }
 });
-
-function sendMessage(event) {
-    event.preventDefault();
-    $("#buscar").click();
-}
